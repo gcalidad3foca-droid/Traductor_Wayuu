@@ -121,6 +121,23 @@
   /* Muted info */
   .dict-count{color:#8B6B55;font-size:12px;text-align:center;margin:0 0 14px}
   .dict-not-found{color:#8B6B55;font-size:13px;margin-top:8px;text-align:center}
+  /* API key modal */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+  .modal-box{background:linear-gradient(135deg,#2C1810,#1B4F72);border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+  .modal-title{font-size:17px;font-weight:800;color:#F5E6C8;margin-bottom:6px}
+  .modal-sub{font-size:12px;color:#8B6B55;margin-bottom:16px;line-height:1.6}
+  .modal-input{width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.15);border-radius:12px;padding:11px 14px;color:white;font-size:13px;outline:none;font-family:monospace;margin-bottom:10px}
+  .modal-input:focus{border-color:rgba(212,175,55,0.5)}
+  .modal-btns{display:flex;gap:8px;justify-content:flex-end}
+  .modal-cancel{background:none;border:1px solid rgba(255,255,255,0.15);border-radius:12px;color:#8B6B55;padding:8px 16px;cursor:pointer;font-size:12px;font-family:inherit}
+  .modal-ok{background:linear-gradient(135deg,#C4623A,#9E4A27);border:none;border-radius:12px;color:white;padding:8px 18px;cursor:pointer;font-size:12px;font-weight:700;font-family:inherit}
+  .modal-link{font-size:11px;color:#3A7CA5;margin-bottom:14px;display:block}
+  .apikey-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;background:rgba(0,0,0,0.22);border-radius:12px;padding:8px 12px;border:1px solid rgba(255,255,255,0.06);cursor:pointer}
+  .apikey-bar:hover{border-color:rgba(212,175,55,0.3)}
+  .apikey-dot{width:8px;height:8px;border-radius:50%;background:#4A7C59;flex-shrink:0}
+  .apikey-dot.off{background:#8B6B55}
+  .apikey-text{font-size:11px;color:#8B6B55;flex:1}
+  .apikey-edit{font-size:10px;color:#D4AF37;text-decoration:underline}
 </style>
 </head>
 <body>
@@ -142,6 +159,12 @@
   <!-- TAB: TRADUCIR -->
   <div class="tab-content active" id="tab-translate">
     <!-- Dirección -->
+    <!-- API Key bar -->
+    <div class="apikey-bar" id="apikey-bar">
+      <div class="apikey-dot off" id="apikey-dot"></div>
+      <span class="apikey-text" id="apikey-text">Sin API key — solo diccionario nativo disponible</span>
+      <span class="apikey-edit">Configurar</span>
+    </div>
     <div class="dir-box">
       <div class="dir-side">
         <div class="dir-label">DESDE</div>
@@ -266,6 +289,20 @@
       📚 Miguel Ángel Jusayú &amp; Jesús Olza Zubiri, 1988<br/>
       🌵 Pueblo Wayuu · La Guajira, Colombia &amp; Venezuela
     </p>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="apikey-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-title">🔑 API Key de Anthropic</div>
+    <p class="modal-sub">Para usar la traducción con IA (cuando una palabra no está en el diccionario nativo), necesitas tu API key de Anthropic. Se guarda solo en tu navegador.</p>
+    <a class="modal-link" href="https://console.anthropic.com/settings/keys" target="_blank">→ Obtener API key en console.anthropic.com</a>
+    <input class="modal-input" id="apikey-input" type="password" placeholder="sk-ant-api03-..."/>
+    <div class="modal-btns">
+      <button class="modal-cancel" id="apikey-cancel">Cancelar</button>
+      <button class="modal-ok" id="apikey-ok">Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -773,6 +810,7 @@ let tab = "translate";
 let history = [];
 let catF = "Todos";
 let recRef = null;
+let apiKey = localStorage.getItem("wayuu_apikey") || "";
 
 // ── Helpers ──
 const totalEntradas = Object.keys(DB).length;
@@ -823,7 +861,7 @@ async function traducirIA(text, direction) {
   const system = `Eres el lingüista más experto del mundo en wayuunaiki (guajiro), lengua arawak de la etnia wayuu de la Península de La Guajira, Colombia y Venezuela.\n\nTu conocimiento se basa EXCLUSIVAMENTE en estas fuentes primarias verificadas:\n1. "Diccionario Básico Ilustrado Wayuunaiki-Español" — David M. Captain y Linda B. Captain, SIL, 2005\n2. "Diccionario sistemático de la lengua guajira" — Miguel Ángel Jusayú y Jesús Olza Zubiri, 1988\n3. "Gramática de la lengua guajira" — Jesús Olza Zubiri y Miguel Ángel Jusayú, 1986\n4. "Gramática Pedagógica de Guajiro" — Karis B. Mansen y Richard A. Mansen, 1984\n\nORTOGRAFÍA OFICIAL (Colombia/Venezuela): alfabeto de 20 letras: a, ch, e, i, j, k, ', l, m, n, o, p, r, s, sh, t, u, ü, w, y\n- Vocales dobles (aa, ee) = más largas\n- ' = cierre glotal (pausa corta entre vocales)\n- ü = 'u' sin redondear labios\n- sh = como inglés 'sh'\n- Infinitivos verbales terminan en -aa\n- Sufijos determinativos: -kai (masc.), -kat (no masc.), -irua (plural)\n- Prefijos personales: ta- (yo), pü- (tú), nü- (él), sü- (ella), wa- (nos), jü- (uds), na- (ellos)\n\nREGLAS AL TRADUCIR:\n- Si sabes la traducción con certeza: da SOLO la traducción limpia\n- Si es aproximada: añade "(aprox.)" al final\n- Si es una frase compleja, da la estructura palabra por palabra entre corchetes\n- Nunca inventes palabras; si no sabes, di "No documentado — [explicación en español de la raíz más cercana]"\n- NO incluyas explicaciones largas a menos que sean gramaticalmente necesarias\n\n${isEsWay ? "Traduce al wayuunaiki:" : "Traduce al español:"}`;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1000,
@@ -931,12 +969,19 @@ async function traducir(text) {
       resultData = local;
       history = [{ input: text.trim(), output: local.result, dir, src: local.source, id: Date.now() }, ...history.slice(0, 29)];
     } else {
-      const ia = await traducirIA(text, dir);
-      resultData = { result: ia, source: "ia" };
-      history = [{ input: text.trim(), output: ia, dir, src: "ia", id: Date.now() }, ...history.slice(0, 29)];
+      if (!apiKey) {
+        resultData = { result: "Palabra no encontrada en el diccionario nativo. Configura tu API key de Anthropic (botón arriba) para usar traducción con IA.", source: "ia" };
+      } else {
+        const ia = await traducirIA(text, dir);
+        resultData = { result: ia, source: "ia" };
+        history = [{ input: text.trim(), output: ia, dir, src: "ia", id: Date.now() }, ...history.slice(0, 29)];
+      }
     }
-  } catch {
-    document.getElementById("error-box").textContent = "⚠️ Error de conexión. Verifica tu internet.";
+  } catch(e) {
+    let msg = "⚠️ Error al conectar con la IA.";
+    if (e && e.message && e.message.includes("fetch")) msg = "⚠️ Error de red. Verifica tu conexión a internet.";
+    if (!apiKey) msg = "⚠️ Configura tu API key de Anthropic para usar la traducción con IA.";
+    document.getElementById("error-box").textContent = msg;
     document.getElementById("error-box").style.display = "";
   }
   loading = false;
@@ -1212,6 +1257,44 @@ function init() {
       document.getElementById("error-box").style.display = "";
     };
     recRef = r; r.start();
+  });
+
+  // API Key bar
+  function updateApiKeyBar() {
+    const dot = document.getElementById("apikey-dot");
+    const text = document.getElementById("apikey-text");
+    if (apiKey) {
+      dot.className = "apikey-dot";
+      text.textContent = "API key configurada — IA habilitada";
+    } else {
+      dot.className = "apikey-dot off";
+      text.textContent = "Sin API key — solo diccionario nativo disponible";
+    }
+  }
+  updateApiKeyBar();
+
+  document.getElementById("apikey-bar").addEventListener("click", () => {
+    document.getElementById("apikey-input").value = apiKey;
+    document.getElementById("apikey-modal").style.display = "flex";
+  });
+  document.getElementById("apikey-cancel").addEventListener("click", () => {
+    document.getElementById("apikey-modal").style.display = "none";
+  });
+  document.getElementById("apikey-ok").addEventListener("click", () => {
+    const val = document.getElementById("apikey-input").value.trim();
+    apiKey = val;
+    if (val) localStorage.setItem("wayuu_apikey", val);
+    else localStorage.removeItem("wayuu_apikey");
+    document.getElementById("apikey-modal").style.display = "none";
+    updateApiKeyBar();
+  });
+  document.getElementById("apikey-modal").addEventListener("click", (e) => {
+    if (e.target === document.getElementById("apikey-modal")) {
+      document.getElementById("apikey-modal").style.display = "none";
+    }
+  });
+  document.getElementById("apikey-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("apikey-ok").click();
   });
 
   // Dict
